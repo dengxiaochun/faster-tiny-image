@@ -1,6 +1,6 @@
 {
   "name": "faster-tiny-image",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "使用tinify库快速压缩图片的工具",
   "bin": {
     "tinypng": "imgcompress.js"
@@ -24,7 +24,7 @@
     "images"
   ],
   "engines": {
-    "node":">= 8.5.0"
+    "node":">= 1.5.0"
   },
   "dependencies": {
     "tinify": "^1.6.0-beta.2"
