@@ -1,13 +1,31 @@
 {
   "name": "faster-tiny-image",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "使用tinify库快速压缩图片的工具",
   "bin": {
     "tinypng": "imgcompress.js"
   },
   "preferGlobal": true,
   "author": "Billiy <billiydeng@gmail.com>",
-  "license": "ISC",
+  "license": "MPL-2.0",
+  "homepage": "https://github.com/dengxiaochun/faster-tiny-image",
+  "repository": {
+    "type": "git",
+    "url":"git+https://github.com/dengxiaochun/faster-tiny-image.git"
+  },
+  "bugs": {
+    "url":"https://github.com/dengxiaochun/SpineInCocosCreator/issues"
+  },
+  "keywords":[
+    "faster-tiny-image",
+    "tinypng",
+    "faster compress image",
+    "compress image",
+    "images"
+  ],
+  "engines": {
+    "node":">= 8.5.0"
+  },
   "dependencies": {
     "tinify": "^1.6.0-beta.2"
   }
