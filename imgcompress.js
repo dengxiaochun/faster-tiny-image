@@ -84,6 +84,23 @@ function compress(imgPath,relative) {
     })
 }
 
+function compresImage(imgPath) {
+    console.log('开始压缩图片')
+    const copyImagePath = path.join(path.dirname(imgPath),'.copy_' + path.basename(imgPath))
+    tinify.fromFile(imgPath).toFile(copyImagePath,(err) => {
+        if (err) {
+            console.log('图片压缩失败',imgPath);
+            console.warn('Error:',err)
+            return;
+        }
+        console.log('图片压缩成功')
+        console.log(`该key：${key},\n本月已压缩图片数为：${tinify.compressionCount}`)
+        fileTool.copyFile(copyImagePath,imgPath)
+        fileTool.deleteFile(copyImagePath)
+        console.log('图片替换成功')
+    })
+}
+
 function createCopyDir(dir) {
     copyDirPath = path.join(path.dirname(dir),'.copy_' + path.basename(dir)) 
     if (fs.existsSync(copyDirPath)) {
@@ -145,19 +162,36 @@ function main() {
         // 初始化key
         return;
     }
+    
+    function changPath(_path) {
+        if (_path.search('./') == 0) {
+            // 相对路径
+            return path.join(process.cwd(),_path)
+        } else {
+            // 绝对路径
+            return _path;
+        }
+    }
+
     // 如果有路径参数，使用参数作为根目录
     if (argv[2]) {
         if (!fs.existsSync(argv[2])) {
             throw new Error(argv[2],'不是一个有效的路径或路径不存在');
         }
-        dirPath = argv[2]
+        if (isDirectory(argv[2])) {
+            dirPath = changPath(argv[2])
+        } else if (isImage(argv[2])) {
+            let imagePath = changPath(argv[2])
+            compresImage(imagePath)
+            return;
+        } else {
+            throw new Error(argv[2],'指定的文件不是图片');
+        }
     } else {
         // 获取命令行运行目录
         dirPath = process.cwd()
     }
-    console.log('-----------------------------------------------------')
-
-    
+    console.log('--------------------------------------------------------------------------')
     console.log('图片根目录是：',dirPath)
     createCopyDir(dirPath)
     console.log('开始检索图片根目录...')
@@ -166,6 +200,6 @@ function main() {
     img_map.forEach((v,k)=>{
         compress(v,k)
     })
-    
+
 }
 main()

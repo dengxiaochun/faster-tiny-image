@@ -13,6 +13,15 @@ key配置好了之后打开终端,使用tinypng命令,该命令会检索当前�
 
     tinypng
 
-如果需要指定目录使用命令
+如果需要指定目录使用命令,同样的会检索图片压缩替换，十分简洁
 
-    tinypng C:\Users\Administrator\Desktop
+    tinypng C:\Users\Administrator\Desktop\nick\
+    tinypng ./nick/
+
+如果只是需要压缩单个图片,指定图片路径，会自动压缩并替换它,让图片感觉起来就是莫名其妙的小了
+
+    tinypng C:\Users\Administrator\Desktop\nick\nick.jpg
+    tinypng ./nick/nick.jpg
+
+什么！在一个文件夹里有10张图，但只要压缩3张,怎么办？
+把这三张图放一个新建文件夹中，指定目录压缩啊，兄弟~
