@@ -1,0 +1,14 @@
+{
+  "name": "faster-tiny-image",
+  "version": "0.0.1",
+  "description": "使用tinify库快速压缩图片的工具",
+  "bin": {
+    "tinypng": "imgcompress.js"
+  },
+  "preferGlobal": true,
+  "author": "Billiy <billiydeng@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "tinify": "^1.6.0-beta.2"
+  }
+}
