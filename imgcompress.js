@@ -4,7 +4,7 @@
 const tinify = require('tinify');
 const fs = require('fs')
 const path = require('path')
-const fileTool = require('./fileTool')
+const fileTool = require('./fileTool');
 
 /** 一个key每月只能压缩500张图，建议每人用邮箱注册一个 */
 /** tinify接口认证key,这里后续多加几个key */
@@ -30,6 +30,79 @@ let faile_img_map = new Map();
 
 /** 图片路径地图，key是相对根目录的深度，value为完整路径*/
 let img_map = new Map();
+
+
+let keys  = [];
+function getKey() {
+    if (keys.length == 0) {
+        const configPath = path.join(__dirname,'config.json')
+        const config = JSON.parse(fs.readFileSync(configPath).toString());
+        keys = config.keys;
+    }
+    const count = 0;
+
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (key.available) {
+            if (key.type == "free" && 500 - key.compressionCount >= count) {
+                // 优先可用的free key
+                return key;
+            }
+        }
+    }
+
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (key.available) { 
+            if (key.type == "pay") {
+                return key;
+            }
+        }
+    }
+
+    throw new Error("没有可用的key了，请使用命令行新增key")
+}
+
+function setKey() {
+    const argv = process.argv;
+    const configPath = path.join(__dirname,'config.json')
+    const len = argv.length - 2;
+    // 验证key
+    function check(key) {
+        const reg = /\w{32}/
+        return reg.test(key)
+    }
+    if (argv[2] && argv[2] == '--key') {
+        let remove = false;
+
+        if (argv[3]) {
+            if (argv[3] == "remove") {
+                remove = true;
+            } else if (check(argv[3])) {
+                
+            }
+        }
+
+        if (argv[3]) {
+            if (check(argv[3])) {
+                const config = JSON.parse(fs.readFileSync(configPath).toString());
+                config.key = argv[3]
+                fs.writeFileSync(configPath,JSON.stringify(config))
+                console.log('写入key成功')
+            } else {
+                console.log('key不符合规则',argv[3])
+            }
+        }
+    } else {
+        const config = JSON.parse(fs.readFileSync(configPath).toString());
+        if (config.key) {
+            key = tinify.key = config.key;
+            console.log('读取key配置',key)
+        } else {
+            console.log('没有配置key,请使用命令行配置再使用 tinyimage --key [keydata]')
+        }
+    }
+}
 
 function isDirectory(_path) {
     return fs.statSync(_path).isDirectory();

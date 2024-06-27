@@ -11,12 +11,12 @@
   "homepage": "https://github.com/dengxiaochun/faster-tiny-image",
   "repository": {
     "type": "git",
-    "url":"git+https://github.com/dengxiaochun/faster-tiny-image.git"
+    "url": "git+https://github.com/dengxiaochun/faster-tiny-image.git"
   },
   "bugs": {
-    "url":"https://github.com/dengxiaochun/SpineInCocosCreator/issues"
+    "url": "https://github.com/dengxiaochun/SpineInCocosCreator/issues"
   },
-  "keywords":[
+  "keywords": [
     "faster-tiny-image",
     "tinypng",
     "faster compress image",
@@ -24,9 +24,10 @@
     "images"
   ],
   "engines": {
-    "node":">= 1.5.0"
+    "node": ">= 1.5.0"
   },
   "dependencies": {
+    "commander": "^12.1.0",
     "tinify": "^1.6.0-beta.2"
   }
 }
