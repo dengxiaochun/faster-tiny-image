@@ -38,6 +38,26 @@ function writeToConfig() {
         console.log("writeToConfig 成功",err)
     })
 }
+
+// 判断时间更新key的可用性
+function updateKeys() {
+    const now = new Date();
+    const now_m = now.getMonth(),now_y = now.getFullYear();
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.key[i];
+        const keyDate = new Date(e.t);
+        const key_m = now.getMonth(),key_y = now.getFullYear();
+        if (key_m == now_m && now_y == key_y) {
+            // 免费的每月刷新500额度
+            console.log("时间一至")
+        } else {
+            e.compressionCount = 0;
+            e.available = true;
+        }
+        // console.log(`类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
+    }
+    writeToConfig();
+}
 // program.help("这是帮助")
 
 // 设置版本和描述
@@ -108,6 +128,20 @@ program.command("rmkey [keys...]")
 
     writeToConfig();
 })
+
+
+program
+  .command('--keys')
+  .description('展示所有的 key,本月压缩数和可用性可能不准确')
+  .action(() => {
+    updateKeys();
+    console.log('所有的 key:');
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.key[i];
+        console.log(`可用性：${e.available} 类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
+    }
+  });
+
     
 // 解析命令行参数
 program.parse(process.argv);
