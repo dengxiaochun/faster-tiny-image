@@ -1,1 +1,28 @@
-{"keys":[{"key":"F5LVG1yFJKL0SqRffWhNyPcnF6mX2KgY","compressionCount":0,"type":"free","available":true,"t":1719483340547},{"key":"F5LVG1yFJKL0SqRffWhNyPcnF6mX2KgY","compressionCount":0,"type":"free","available":true,"t":1719483340547},{"key":"F5LVG1yFJKL0SqRffWhNyPcnF6mX2KgY","compressionCount":0,"type":"free","available":true,"t":1719483340547}]}
+{
+    "keys": [
+        {
+            "key": "F5LVG1yFJKL0SqRffWhNyPcnF6mX2KgY",
+            "compressionCount": 498,
+            "type": "free",
+            "available": true,
+            "t": 1719917424746,
+            "leftCount": 1
+        },
+        {
+            "key": "F1LVG1yFJKL0SqRffWhNyPcnF6mX2KgY",
+            "compressionCount": 495,
+            "type": "free",
+            "available": true,
+            "t": 1719917424746,
+            "leftCount": 2
+        },
+        {
+            "key": "F2LVG1yFJKL0SqRffWhNyPcnF6mX2KgY",
+            "compressionCount": 0,
+            "type": "pay",
+            "available": true,
+            "t": 1719483340547,
+            "leftCount": 1000000000
+        }
+    ]
+}

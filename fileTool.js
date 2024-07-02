@@ -10,6 +10,16 @@ if (!fs.copyFileSync) {
     }
 }
 
+
+const imgReg = /\.(png|jpg|jpeg)/
+/**
+ * @param { String } file 
+ */
+function isImg(file) {
+    const f = file.slice(-5).toLocaleLowerCase()
+    return imgReg.test(f)
+}
+
 /**
  * @param { String } file 
  */
@@ -144,3 +154,4 @@ exports.deleteDir = deleteDir;
 exports.copyAll = copyAll;
 exports.copyFile = copyFile;
 exports.copyDir = copyDir;
+exports.isImg = isImg;

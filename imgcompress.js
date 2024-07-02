@@ -134,6 +134,7 @@ function compress(imgPath,relative) {
     console.log(`开始第${n}张图片压缩`,imgPath);
     const source = tinify.fromFile(imgPath)
     const toPath = path.join(copyDirPath,relative)
+
     source.toFile(toPath,(err,data)=>{
         has_compress_count ++;
         if (err) {
