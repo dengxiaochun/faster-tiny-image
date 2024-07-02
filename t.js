@@ -12,7 +12,9 @@ const configPath = path.join(__dirname,'config.json');
 
 const config = JSON.parse(fs.readFileSync(configPath).toString());
 
-console.log("config",config)
+const imglist = []; 
+
+// console.log("config",config)
 
 // 验证key
 function checkKey(key) {
@@ -35,7 +37,7 @@ function writeToConfig() {
         if (err) {
             console.log("writeToConfig 失败了",err)
         }
-        console.log("writeToConfig 成功",err)
+        console.log("writeToConfig 成功")
     })
 }
 
@@ -44,21 +46,52 @@ function updateKeys() {
     const now = new Date();
     const now_m = now.getMonth(),now_y = now.getFullYear();
     for (let i = 0; i < config.keys.length; i++) {
-        const e = config.key[i];
-        const keyDate = new Date(e.t);
-        const key_m = now.getMonth(),key_y = now.getFullYear();
-        if (key_m == now_m && now_y == key_y) {
-            // 免费的每月刷新500额度
-            console.log("时间一至")
-        } else {
-            e.compressionCount = 0;
-            e.available = true;
-        }
+        const e = config.keys[i];
+        if (e.type == "free") {
+            const keyDate = new Date(e.t);
+            const key_m = keyDate.getMonth(),key_y = keyDate.getFullYear();
+            if (key_m == now_m && now_y == key_y) {
+                // 免费的每月刷新500额度
+                console.log("时间一至")
+            } else {
+                // 新的月份更新key
+                e.compressionCount = 0;
+                e.available = true;
+            }
+        } 
         // console.log(`类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
     }
     writeToConfig();
 }
-// program.help("这是帮助")
+
+function dealParameterPath(paths) {
+    // let paths = ['.'];
+    const cdir = process.cwd(); 
+    for (let i = 0; i < paths.length; i++) {
+        // const element = array[i];
+        const _path = paths[i]
+        let resolvedPath = "";
+        if (path.isAbsolute(_path)) {
+            resolvedPath = _path;
+        } else {
+            resolvedPath = path.join(cdir,_path)
+        }
+
+        if (fileTool.isExits(resolvedPath)) {
+            const stat = fs.statSync(resolvedPath);
+            if (stat.isFile()) {
+
+            } else if (stat.isDirectory()) {
+
+            } else {
+                console.log("不是文件也不是目录",resolvedPath)
+            }
+        } else {
+            console.log("路径不存在",resolvedPath)
+        }
+    }
+    
+}
 
 // 设置版本和描述
 program.name("tinypng")
@@ -68,10 +101,16 @@ program.name("tinypng")
 // 默认命令
 program
   .arguments('[dirs...]')
-  .description('压缩命令，默认压缩当前目录')
+  .description(`压缩命令
+    不传参递归压缩命令行所在目录所有图片文件
+    传目录递归压缩命令行所在目录所有图片文件
+    可以传入绝对路径 C:\\faster-tiny-image\\img\\
+    也可以传相对路径 ./img/
+    还可以是图片文件 ./img/picture.png ./img/picture.JPG
+    可以传入多个路径 ./img/ ./otherImg/ `)
   .action((paths  = ['.']) => {
-    console.log("33333",paths);
-   
+    // let dirPath = "";
+    dealParameterPath(paths);
   });
 
 program.command("addkey [keys...]")
@@ -131,13 +170,13 @@ program.command("rmkey [keys...]")
 
 
 program
-  .command('--keys')
+  .command('keys')
   .description('展示所有的 key,本月压缩数和可用性可能不准确')
   .action(() => {
     updateKeys();
     console.log('所有的 key:');
     for (let i = 0; i < config.keys.length; i++) {
-        const e = config.key[i];
+        const e = config.keys[i];
         console.log(`可用性：${e.available} 类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
     }
   });
