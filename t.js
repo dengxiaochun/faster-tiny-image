@@ -62,7 +62,7 @@ let copyDirPath = path.join(process.cwd(),'.tempImgDir');
 let faile_img_map = new Map();
 
 // 一次上传压缩数
-const PER_COUNT = 100;
+const PER_COUNT = 2;
 
 // 现阶段要压缩数量
 let target_count = 0;

@@ -1,20 +1,47 @@
-#!/usr/bin/env node
+/**
+ * @typedef {Object} KeyObject
+ * @property {string} key - The key string.
+ * @property {number} compressionCount - The compression count.
+ * @property {string} type - The type of the key.
+ * @property {boolean} available - The availability of the key.
+ * @property {number} t - The timestamp.
+ * @property {number} leftCount
+ */
+
+/**
+ * @typedef {Object} KeysObject
+ * @property {KeyObject[]} keys - An array of key objects.
+ */
+
+/**
+ * @typedef {Map<string, string>} stringMap
+ * 字符串到数字的映射
+ */
+
 
 'use strict'
+const { Command } = require('commander');
 const tinify = require('tinify');
 const fs = require('fs')
 const path = require('path')
 const fileTool = require('./fileTool');
+const program = new Command();
 
-/** 一个key每月只能压缩500张图，建议每人用邮箱注册一个 */
-/** tinify接口认证key,这里后续多加几个key */
-let key = '';
+// key配置路径
+const configPath = path.join(__dirname,'config.json');
 
-// 图片根目录，优先使用参数路径tinyimage [dirpath]，其次使用当前命令行运行的路径
-let dirPath = ''
+// key配置读取
+/**
+ * @type {KeysObject}
+ */
+const config = JSON.parse(fs.readFileSync(configPath).toString());
 
-// 在dirPath同级目录下创建一个.copy${dirPath}的路径，做为压缩图片后的输出目录
-let copyDirPath = '';
+// 检索的图片数
+/**
+ * 检索的图片数
+ * @type {string[]}
+ */
+const imglist = []; 
 
 /** 开始压缩图片数 */
 let img_count = 0;
@@ -25,113 +52,323 @@ let total_count = 0;
 /** 已经压缩的图片,不管有没有成功 */
 let has_compress_count = 0;
 
-/** 因为一些原因压缩失败的图片地图,key是相对根目录的深度，value为完整路径 */
+// 在dirPath同级目录下创建一个.copy${dirPath}的路径，做为压缩图片后的输出目录
+let copyDirPath = path.join(process.cwd(),'.tempImgDir');
+
+/**
+ * 因为一些原因压缩失败的图片地图,key是相对根目录的深度，value为完整路径
+ * @type {stringMap}
+ */
 let faile_img_map = new Map();
 
-/** 图片路径地图，key是相对根目录的深度，value为完整路径*/
+// 一次上传压缩数
+const PER_COUNT = 2;
+
+// 现阶段要压缩数量
+let target_count = 0;
+
+/**
+ * 图片路径地图，key是相对根目录的深度，value为完整路径
+ * @type {stringMap}
+ */
 let img_map = new Map();
 
+// console.log("config",config)
 
-let keys  = [];
-function getKey() {
-    if (keys.length == 0) {
-        const configPath = path.join(__dirname,'config.json')
-        const config = JSON.parse(fs.readFileSync(configPath).toString());
-        keys = config.keys;
-    }
-    const count = 0;
-
-    for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (key.available) {
-            if (key.type == "free" && 500 - key.compressionCount >= count) {
-                // 优先可用的free key
-                return key;
-            }
-        }
-    }
-
-    for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if (key.available) { 
-            if (key.type == "pay") {
-                return key;
-            }
-        }
-    }
-
-    throw new Error("没有可用的key了，请使用命令行新增key")
+// 验证key
+function checkKey(key) {
+    const reg = /\w{32}/
+    return reg.test(key)
 }
 
-function setKey() {
-    const argv = process.argv;
-    const configPath = path.join(__dirname,'config.json')
-    const len = argv.length - 2;
-    // 验证key
-    function check(key) {
-        const reg = /\w{32}/
-        return reg.test(key)
-    }
-    if (argv[2] && argv[2] == '--key') {
-        let remove = false;
-
-        if (argv[3]) {
-            if (argv[3] == "remove") {
-                remove = true;
-            } else if (check(argv[3])) {
-                
-            }
+function isKeyExits(key) {
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.keys[i];
+        if (e && e.key == key) {
+            return e;
         }
+    }
+    return undefined;
+}
 
-        if (argv[3]) {
-            if (check(argv[3])) {
-                const config = JSON.parse(fs.readFileSync(configPath).toString());
-                config.key = argv[3]
-                fs.writeFileSync(configPath,JSON.stringify(config))
-                console.log('写入key成功')
+function writeToConfig() {
+    fs.writeFile(configPath,JSON.stringify(config),(err)=>{
+        if (err) {
+            console.log("writeToConfig 失败了",err)
+        }
+        console.log("writeToConfig 成功")
+    })
+}
+
+// 更新key的可用性
+function updateKeys() {
+    const now = new Date();
+    const now_m = now.getMonth(),now_y = now.getFullYear();
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.keys[i];
+        if (e.type == "free") {
+            const keyDate = new Date(e.t);
+            const key_m = keyDate.getMonth(),key_y = keyDate.getFullYear();
+            if (key_m == now_m && now_y == key_y) {
+                // 免费的每月刷新500额度
+                console.log("时间一至")
             } else {
-                console.log('key不符合规则',argv[3])
+                // 新的月份更新key
+                e.compressionCount = 0;
+                e.available = true;
+                e.leftCount = 500;
+                e.t = now.getTime();
             }
+        } 
+        // console.log(`类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
+    }
+    writeToConfig();
+}
+
+
+/**
+ * 当一个免费key不够用时，使用多个key做处理
+ * @type {KeyObject[]}
+ */
+const useAvailablekeys = [];
+
+/**
+ * 使用组合keys
+ */
+let isUseKeys = false;
+
+function checkAvailableKey() {
+    let freeAvailableCount = 0;
+    let allAvailableCount = 0;
+    /**
+     * @type {KeyObject[]}
+     */
+    let freeAvailablekeys = [];
+    /**
+     * @type {KeyObject}
+     */
+    let paykey;
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.keys[i];
+        if (e.available) {
+            if (e.type == "free") { 
+                freeAvailableCount += e.leftCount;
+                // 从早到后使用key
+                if (e.leftCount >= total_count - has_compress_count) {
+                    console.log("免费key",e.key)
+                    return e.key;
+                }
+                freeAvailablekeys.push(e)
+            } else if (paykey == undefined) {
+                paykey = e;
+            }
+            allAvailableCount += e.leftCount;
+        }
+    }
+
+    if (freeAvailableCount >= total_count - has_compress_count) {
+        useAvailablekeys.push(...freeAvailablekeys);
+    } else if (paykey) {
+        if (freeAvailableCount > 0) {
+            useAvailablekeys.push(...freeAvailablekeys);
+            useAvailablekeys.push(paykey)
+        } else {
+            console.log("收费key",paykey.key)
+            return paykey.key;
         }
     } else {
-        const config = JSON.parse(fs.readFileSync(configPath).toString());
-        if (config.key) {
-            key = tinify.key = config.key;
-            console.log('读取key配置',key)
-        } else {
-            console.log('没有配置key,请使用命令行配置再使用 tinyimage --key [keydata]')
+        console.log("没有可用的key了",config)
+    }
+}
+
+
+let curentKey = "";
+/**
+ * 
+ * @param {string} key 
+ */
+function setTinifyKey(key) {
+    if (curentKey == key) {
+
+    } else {
+        tinify.key = key;
+        curentKey = key;
+        writeToConfig();
+    }
+}
+
+function setUseKeys() {
+    // if (img_count <=)
+    let availableCount = 0;
+    for (let i = 0; i < useAvailablekeys.length; i++) {
+        const e = useAvailablekeys[i];
+        availableCount += e.leftCount;
+        if (availableCount >= img_count) {
+            // console.log("使用key",e.key)
+            setTinifyKey(e.key)
+            return;
+            // return e.key;
         }
     }
 }
 
-function isDirectory(_path) {
-    return fs.statSync(_path).isDirectory();
-}
 
 
-const imgReg = /\.(png|jpg|jpeg)/
-function isImage(fileName) {
-    const f = fileName.slice(-5).toLocaleLowerCase()
-    return imgReg.test(f)
+/**
+ * 
+ * @param {string} paths 
+ */
+function dealParameterPath(paths) {
+    // let paths = ['.'];
+    const cdir = process.cwd(); 
+    for (let i = 0; i < paths.length; i++) {
+        // const element = array[i];
+        const _path = paths[i]
+        let resolvedPath = "";
+        if (path.isAbsolute(_path)) {
+            resolvedPath = _path;
+        } else {
+            resolvedPath = path.join(cdir,_path)
+        }
+
+        if (fileTool.isExits(resolvedPath)) {
+            const stat = fs.statSync(resolvedPath);
+            if (stat.isFile()) {
+                if (fileTool.isImg(resolvedPath)) {
+                    // console.log("文件",resolvedPath)
+                    
+                    imglist.push(resolvedPath);
+                }
+            } else if (stat.isDirectory()) {
+                // console.log("目录",resolvedPath)
+                const dirPaths = fs.readdirSync(resolvedPath).map(img=>path.join(resolvedPath,img))
+                dealParameterPath(dirPaths);
+            } else {
+                console.log("不是文件也不是目录",resolvedPath)
+            }
+        } else {
+            console.log("路径不存在",resolvedPath)
+        }
+    }
+    
 }
 
 function replace() {
     console.log('准备替换根目录下的图片...')
-    fileTool.copyAll(copyDirPath,dirPath);
-    console.log('替换成功')
+    // fileTool.copyAll(copyDirPath,dirPath);
+    // console.log('替换成功')
     if (faile_img_map.size > 0) {
         console.log(`尚有${faile_img_map.size}张图片压缩失败,分别是`)
         console.log(faile_img_map)
     }
 
-    fileTool.deleteAll(copyDirPath)
+    // fileTool.deleteAll(copyDirPath)
+    console.log("img_map",img_map)
+    let count = img_map.size;
+
+    function checkDone() {
+        count --;
+        console.log("checkDone",count)
+        if (count == 0) {
+            fileTool.deleteAll(copyDirPath)
+            console.log('替换成功')
+        }
+    }
+
+    img_map.forEach((imgPath,base)=>{
+        const tinyPath = path.join(copyDirPath,base)
+        let newImgPath = imgPath;
+        if (path.basename(imgPath) == base) {
+            // console.log("copy ",tinyPath,newImgPath)
+            fs.copyFile(tinyPath,newImgPath,(err)=>{
+                checkDone()
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+            })
+        } else {
+            newImgPath = path.join(path.dirname(imgPath),base)
+            // console.log("copy 不一样",tinyPath,newImgPath)
+            fs.copyFile(tinyPath,newImgPath,(err)=>{
+                checkDone();
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                fs.unlink(imgPath,(err)=>{
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+                    fs.rename(newImgPath,imgPath,(err)=>{
+                        if (err) {
+                            console.log(err);
+                            return;
+                        }
+                    })
+                })
+            })
+        }
+    })
 }
 
+/**
+ * 
+ * @param {string} imgPath 
+ * @returns 
+ */
+function dealImgMapKey(imgPath) {
+    let base = path.basename(imgPath);
+    if (img_map.has(base)) {
+        const ext = path.extname(imgPath);
+        const baseName = path.basename(imgPath, ext);
+        let counter = 0;
+        do {
+            counter ++;
+            base = `${baseName}_${counter}${ext}`;
+        } while (img_map.has(base));
+    }
+    img_map.set(base,imgPath)
+    return base;
+}
 
-function compress(imgPath,relative) {
+function startCompress() {
+    target_count = Math.min(target_count + PER_COUNT,total_count)
+    for (let i = has_compress_count; i < target_count; i++) {
+        compress(imglist[i])
+        // compress2(imglist[i])
+    }
+}
+
+// 更新当前key的信息
+function setSinglekey() {
+    config.keys.forEach((e)=>{
+        if (e.key == curentKey) {
+            e.compressionCount = tinify.compressionCount;
+            if (e.type == 'free') {
+                e.leftCount = 500 - e.compressionCount;
+                if (e.leftCount == 0) {
+                    e.available = false;
+                    writeToConfig();
+                }
+            }
+        }
+    })
+}
+
+/**
+ * 
+ * @param {string} imgPath img图全路径
+ */
+function compress(imgPath) {
+    let relative = dealImgMapKey(imgPath);
     img_count ++;
     const n = img_count;
     console.log(`开始第${n}张图片压缩`,imgPath);
+    if (isUseKeys) {
+        setUseKeys();
+    }
     const source = tinify.fromFile(imgPath)
     const toPath = path.join(copyDirPath,relative)
 
@@ -141,7 +378,10 @@ function compress(imgPath,relative) {
             faile_img_map.set(relative,imgPath)
             console.log('图片压缩失败',imgPath);
             console.warn('Error:',err)
+            // ttdo err信息做额外处理，比如key不可用了等等
         }
+
+        setSinglekey();
         if (has_compress_count == total_count) {
             !err && console.log(`最后一张图片已压缩,已输出到 ${toPath}`)
             if (faile_img_map.size == 0) {
@@ -149,131 +389,203 @@ function compress(imgPath,relative) {
             } else {
                 console.log(`有${faile_img_map.size}张图片压缩失败`)
             }
-            console.log(`该key：${key},\n本月已压缩图片数为：${tinify.compressionCount}`)
+            console.log(`该key：${curentKey},\n本月已压缩图片数为：${tinify.compressionCount}`)
             console.log('------------------------------------------------------------------------------------------')
             replace()
+            writeToConfig();
+        } else if (has_compress_count == target_count) {
+            !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
+            startCompress();
+        } else {
+            !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
+        }
+        // 
+        
+    })
+}
+
+/**
+ * 
+ * @param {string} imgPath img图全路径
+ */
+function compress2(imgPath) {
+    let relative = dealImgMapKey(imgPath);
+    img_count ++;
+    const n = img_count;
+    console.log(`compress2 开始第${n}张图片压缩`,imgPath);
+    if (isUseKeys) {
+        setUseKeys();
+    }
+
+    // const source = tinify.fromFile(imgPath)
+    const toPath = path.join(copyDirPath,relative)
+    fs.copyFile(imgPath,toPath,(err)=>{
+        has_compress_count ++;
+        if (err) {
+            faile_img_map.set(relative,imgPath)
+            console.log('图片压缩失败',imgPath);
+            console.warn('Error:',err)
+        }
+
+        setSinglekey();
+        if (has_compress_count == total_count) {
+            !err && console.log(`最后一张图片已压缩,已输出到 ${toPath}`)
+            if (faile_img_map.size == 0) {
+                console.log('没有压缩失败的图片')
+            } else {
+                console.log(`有${faile_img_map.size}张图片压缩失败`)
+            }
+            console.log(`该key：${curentKey},\n本月已压缩图片数为：${tinify.compressionCount}`)
+            console.log('------------------------------------------------------------------------------------------')
+
+            replace()
+            writeToConfig();
+            
+        } else if (has_compress_count == target_count) {
+            !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
+            startCompress();
         } else {
             !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
         }
     })
+    // setTimeout(() => {
+        
+    // }, Math.random() * 3000);
 }
 
-function compresImage(imgPath) {
-    console.log('开始压缩图片')
-    const copyImagePath = path.join(path.dirname(imgPath),'.copy_' + path.basename(imgPath))
-    tinify.fromFile(imgPath).toFile(copyImagePath,(err) => {
-        if (err) {
-            console.log('图片压缩失败',imgPath);
-            console.warn('Error:',err)
-            return;
-        }
-        console.log('图片压缩成功')
-        console.log(`该key：${key},\n本月已压缩图片数为：${tinify.compressionCount}`)
-        fileTool.copyFile(copyImagePath,imgPath)
-        fileTool.deleteFile(copyImagePath)
-        console.log('图片替换成功')
-    })
-}
+// 设置版本和描述
+program.name("tinypng")
+  .version('v1.0.0')
+  .description('简单好用的tinypng压缩工具');
 
-function createCopyDir(dir) {
-    copyDirPath = path.join(path.dirname(dir),'.copy_' + path.basename(dir)) 
-    if (fs.existsSync(copyDirPath)) {
-        console.log('已经删除老的目录',copyDirPath)
+/**
+ * 默认命令
+ * @param {string[]} paths - 一个或多个路径
+ */
+program
+  .arguments('[dirs...]')
+  .description(`压缩命令
+    不传参递归压缩命令行所在目录所有图片文件
+    传目录递归压缩命令行所在目录所有图片文件
+    可以传入绝对路径 C:\\faster-tiny-image\\img\\
+    也可以传相对路径 ./img/
+    还可以是图片文件 ./img/picture.png ./img/picture.JPG
+    可以传入多个路径 ./img/ ./otherImg/ `)
+  .action((paths  = ['.']) => {
+    // let dirPath = "";
+    if (paths.length == 0) {
+        paths = ['.']
+    }
+    dealParameterPath(paths);
+    total_count = imglist.length;
+    if (fileTool.isExits(copyDirPath)) {
         fileTool.deleteAll(copyDirPath)
-    }
-    fs.mkdirSync(copyDirPath)
-    console.log('新建压缩输出图片目录:',copyDirPath)
-}
-
-function searchDir(dir,relative = '') {
-    let files = fs.readdirSync(dir);
-    files.forEach((file,i)=>{
-        const curPath = path.join(dir,file);
-        if (isDirectory(curPath)) {
-            fs.mkdirSync(path.join(copyDirPath,relative,file))
-            searchDir(curPath,path.join(relative,file))
-        } else if(isImage(file)) {
-            total_count ++;
-            img_map.set(path.join(relative,file),curPath)
-        }
-    })
-}
-
-function initKey() {
-    const argv = process.argv;
-    const configPath = path.join(__dirname,'config.json')
-    // 验证key
-    function check(key) {
-        const reg = /\w{32}/
-        return reg.test(key)
-    }
-    if (argv[2] && argv[2] == '--key') {
-        if (argv[3]) {
-            if (check(argv[3])) {
-                const config = JSON.parse(fs.readFileSync(configPath).toString());
-                config.key = argv[3]
-                fs.writeFileSync(configPath,JSON.stringify(config))
-                console.log('写入key成功')
-            } else {
-                console.log('key不符合规则',argv[3])
-            }
-        }
+        fs.mkdirSync(copyDirPath)
     } else {
-        const config = JSON.parse(fs.readFileSync(configPath).toString());
-        if (config.key) {
-            key = tinify.key = config.key;
-            console.log('读取key配置',key)
-        } else {
-            console.log('没有配置key,请使用命令行配置再使用 tinyimage --key [keydata]')
-        }
+        fs.mkdirSync(copyDirPath)
     }
-}
-initKey()
-
-function main() {
-    const argv = process.argv;
-    if (argv[2] && argv[2] == '--key') {
-        // 初始化key
+    // 刷新keys
+    updateKeys();
+    const key = checkAvailableKey();
+    if (key) {
+        console.log("使用key",key)
+        setTinifyKey(key);
+    } else if (useAvailablekeys.length > 0) {
+        console.log("使用组合key",useAvailablekeys.map(v=>v.key))
+        isUseKeys = true;
+    } else {
+        // console.log("没有可用的")
         return;
     }
-    
-    function changPath(_path) {
-        if (_path.search('./') == 0) {
-            // 相对路径
-            return path.join(process.cwd(),_path)
-        } else {
-            // 绝对路径
-            return _path;
-        }
-    }
+    console.log(imglist);
+    startCompress();
 
-    // 如果有路径参数，使用参数作为根目录
-    if (argv[2]) {
-        if (!fs.existsSync(argv[2])) {
-            throw new Error(argv[2],'不是一个有效的路径或路径不存在');
+    // imglist.forEach((img)=>{
+    //     console.log(dealImgMapKey(img))
+    // })
+    // img_map.forEach((v,k)=>{
+    //     console.log("key",k,v)
+    // })
+    // console.log(img_map.values())
+
+    // console.log(imglist,total_count);
+  });
+
+program.command("addkey [keys...]")
+.description("addkey,可以增加多个")
+.option('-t,--type <type>','设置键的类型 free：免费key pay:收费key')
+.action((keys,options)=>{
+    const type = options.type || 'free';
+    const isFree = type == 'free';
+    keys.forEach((key,i) => {
+        if (checkKey(key)) {
+            const keyinfo = isKeyExits(key);
+            if (keyinfo) {
+                console.log("key已存在",key)
+            } else {
+                console.log("增加key",key)
+                config.keys.push({
+                    "key": "F5LVG1yFJKL0SqRffWhNyPcnF6mX2KgY",
+                    "compressionCount": 0,
+                    "leftCount": isFree ? 500 : 9999999,
+                    "type":type,
+                    "available": true,
+                    "t": Date.now()
+                })
+            }
         }
-        if (isDirectory(argv[2])) {
-            dirPath = changPath(argv[2])
-        } else if (isImage(argv[2])) {
-            let imagePath = changPath(argv[2])
-            compresImage(imagePath)
-            return;
-        } else {
-            throw new Error(argv[2],'指定的文件不是图片');
-        }
-    } else {
-        // 获取命令行运行目录
-        dirPath = process.cwd()
-    }
-    console.log('--------------------------------------------------------------------------')
-    console.log('图片根目录是：',dirPath)
-    createCopyDir(dirPath)
-    console.log('开始检索图片根目录...')
-    searchDir(dirPath)
-    console.log(`一共检索到${total_count}张图片,开始上传压缩...`)
-    img_map.forEach((v,k)=>{
-        compress(v,k)
     })
 
+    writeToConfig()
+})
+
+program.command("rmkey [keys...]")
+.description("rmkey,删除无用的key")
+.action((keys)=>{
+    console.log("keys",keys)
+    keys.forEach((key,i) => {
+        if (checkKey(key)) {
+            const keyinfo = isKeyExits(key);
+            if (keyinfo) {
+                console.log("移除key",key)
+            } else {
+                console.log("key不存在",key)
+            }
+            for (let i = 0; i < config.keys.length; i++) {
+                const e = config.keys[i];
+                if (e && e.key == key) {
+                    config.keys[i] = undefined;
+                }
+            }
+        } else {
+            console.log("无效的key值 key为32为字母数字",key)
+        }
+    });
+    config.keys = config.keys.filter(Boolean);
+
+    // console.log("rmkeys",config.keys)
+
+    writeToConfig();
+})
+
+
+program
+  .command('keys')
+  .description('展示所有的 key,本月压缩数和可用性可能不准确')
+  .action(() => {
+    updateKeys();
+    console.log('所有的 key:');
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.keys[i];
+        console.log(`可用性：${e.available} 类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
+    }
+  });
+
+    
+// 解析命令行参数
+program.parse(process.argv);
+
+// 如果没有提供命令，显示帮助信息
+if (!process.argv.slice(2).length) {
+  program.outputHelp();
 }
-main()

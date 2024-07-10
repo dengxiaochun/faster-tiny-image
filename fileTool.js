@@ -11,7 +11,7 @@ if (!fs.copyFileSync) {
 }
 
 
-const imgReg = /\.(png|jpg|jpeg)/
+const imgReg = /\.(png|jpg|jpeg|webp)/
 /**
  * @param { String } file 
  */
