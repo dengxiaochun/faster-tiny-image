@@ -254,7 +254,63 @@ function dealParameterPath(paths) {
 }
 
 function replace() {
+    console.log('准备替换根目录下的图片...')
+    // fileTool.copyAll(copyDirPath,dirPath);
+    // console.log('替换成功')
+    if (faile_img_map.size > 0) {
+        console.log(`尚有${faile_img_map.size}张图片压缩失败,分别是`)
+        console.log(faile_img_map)
+    }
 
+    // fileTool.deleteAll(copyDirPath)
+    console.log("img_map",img_map)
+    let count = img_map.size;
+
+    function checkDone() {
+        count --;
+        console.log("checkDone",count)
+        if (count == 0) {
+            fileTool.deleteAll(copyDirPath)
+            console.log('替换成功')
+        }
+    }
+
+    img_map.forEach((imgPath,base)=>{
+        const tinyPath = path.join(copyDirPath,base)
+        let newImgPath = imgPath;
+        if (path.basename(imgPath) == base) {
+            // console.log("copy ",tinyPath,newImgPath)
+            fs.copyFile(tinyPath,newImgPath,(err)=>{
+                checkDone()
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+            })
+        } else {
+            newImgPath = path.join(path.dirname(imgPath),base)
+            // console.log("copy 不一样",tinyPath,newImgPath)
+            fs.copyFile(tinyPath,newImgPath,(err)=>{
+                checkDone();
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                fs.unlink(imgPath,(err)=>{
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+                    fs.rename(newImgPath,imgPath,(err)=>{
+                        if (err) {
+                            console.log(err);
+                            return;
+                        }
+                    })
+                })
+            })
+        }
+    })
 }
 
 /**
@@ -280,8 +336,8 @@ function dealImgMapKey(imgPath) {
 function startCompress() {
     target_count = Math.min(target_count + PER_COUNT,total_count)
     for (let i = has_compress_count; i < target_count; i++) {
-        // compress(imglist[i])
-        compress2(imglist[i])
+        compress(imglist[i])
+        // compress2(imglist[i])
     }
 }
 
@@ -356,22 +412,22 @@ function compress2(imgPath) {
     let relative = dealImgMapKey(imgPath);
     img_count ++;
     const n = img_count;
-    console.log(`开始第${n}张图片压缩`,imgPath);
+    console.log(`compress2 开始第${n}张图片压缩`,imgPath);
     if (isUseKeys) {
         setUseKeys();
     }
 
     // const source = tinify.fromFile(imgPath)
     const toPath = path.join(copyDirPath,relative)
-
-    setTimeout(() => {
+    fs.copyFile(imgPath,toPath,(err)=>{
         has_compress_count ++;
-        let err = undefined;
         if (err) {
             faile_img_map.set(relative,imgPath)
             console.log('图片压缩失败',imgPath);
             console.warn('Error:',err)
         }
+
+        setSinglekey();
         if (has_compress_count == total_count) {
             !err && console.log(`最后一张图片已压缩,已输出到 ${toPath}`)
             if (faile_img_map.size == 0) {
@@ -381,7 +437,9 @@ function compress2(imgPath) {
             }
             console.log(`该key：${curentKey},\n本月已压缩图片数为：${tinify.compressionCount}`)
             console.log('------------------------------------------------------------------------------------------')
+
             replace()
+            writeToConfig();
             
         } else if (has_compress_count == target_count) {
             !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
@@ -389,7 +447,10 @@ function compress2(imgPath) {
         } else {
             !err && console.log(`第${n}张图片已压缩,已输出到 ${toPath}`)
         }
-    }, Math.random() * 3000);
+    })
+    // setTimeout(() => {
+        
+    // }, Math.random() * 3000);
 }
 
 // 设置版本和描述
