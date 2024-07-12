@@ -62,7 +62,7 @@ let copyDirPath = path.join(process.cwd(),'.tempImgDir');
 let faile_img_map = new Map();
 
 // 一次上传压缩数
-const PER_COUNT = 2;
+const PER_COUNT = 50;
 
 // 现阶段要压缩数量
 let target_count = 0;
@@ -111,7 +111,7 @@ function updateKeys() {
             const key_m = keyDate.getMonth(),key_y = keyDate.getFullYear();
             if (key_m == now_m && now_y == key_y) {
                 // 免费的每月刷新500额度
-                console.log("时间一至")
+                // console.log("时间一至")
             } else {
                 // 新的月份更新key
                 e.compressionCount = 0;

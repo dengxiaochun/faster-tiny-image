@@ -61,8 +61,8 @@ let copyDirPath = path.join(process.cwd(),'.tempImgDir');
  */
 let faile_img_map = new Map();
 
-// 一次上传压缩数
-const PER_COUNT = 2;
+// 一次上传压缩数,一次太多会被限制
+const PER_COUNT = 100;
 
 // 现阶段要压缩数量
 let target_count = 0;
@@ -336,8 +336,8 @@ function dealImgMapKey(imgPath) {
 function startCompress() {
     target_count = Math.min(target_count + PER_COUNT,total_count)
     for (let i = has_compress_count; i < target_count; i++) {
-        compress(imglist[i])
-        // compress2(imglist[i])
+        // compress(imglist[i])
+        compress2(imglist[i])
     }
 }
 
