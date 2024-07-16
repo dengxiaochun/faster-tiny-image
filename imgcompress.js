@@ -18,7 +18,6 @@
  * 字符串到数字的映射
  */
 
-
 'use strict'
 const { Command } = require('commander');
 const tinify = require('tinify');
@@ -61,8 +60,8 @@ let copyDirPath = path.join(process.cwd(),'.tempImgDir');
  */
 let faile_img_map = new Map();
 
-// 一次上传压缩数
-const PER_COUNT = 50;
+// 一次上传压缩数,一次太多会被限制
+const PER_COUNT = 100;
 
 // 现阶段要压缩数量
 let target_count = 0;
@@ -177,7 +176,8 @@ function checkAvailableKey() {
             return paykey.key;
         }
     } else {
-        console.log("没有可用的key了",config)
+        console.log(`可用key总共可压缩数为：${freeAvailableCount}, 但需要压缩${total_count},没有可用的key了`,config)
+        // console.log("没有可用的key了",config)
     }
 }
 
@@ -211,8 +211,6 @@ function setUseKeys() {
         }
     }
 }
-
-
 
 /**
  * 
@@ -263,12 +261,12 @@ function replace() {
     }
 
     // fileTool.deleteAll(copyDirPath)
-    console.log("img_map",img_map)
+    // console.log("img_map",img_map)
     let count = img_map.size;
 
     function checkDone() {
         count --;
-        console.log("checkDone",count)
+        // console.log("checkDone",count)
         if (count == 0) {
             fileTool.deleteAll(copyDirPath)
             console.log('替换成功')
@@ -345,7 +343,8 @@ function startCompress() {
 function setSinglekey() {
     config.keys.forEach((e)=>{
         if (e.key == curentKey) {
-            e.compressionCount = tinify.compressionCount;
+            e.compressionCount = tinify.compressionCount || e.compressionCount || 0;
+            e.t = Date.now();
             if (e.type == 'free') {
                 e.leftCount = 500 - e.compressionCount;
                 if (e.leftCount == 0) {
@@ -453,6 +452,14 @@ function compress2(imgPath) {
     // }, Math.random() * 3000);
 }
 
+function listKeys() {
+    console.log('所有的 key:');
+    for (let i = 0; i < config.keys.length; i++) {
+        const e = config.keys[i];
+        console.log(`可用性：${e.available} 类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
+    }
+}
+
 // 设置版本和描述
 program.name("tinypng")
   .version('v1.0.0')
@@ -497,7 +504,8 @@ program
         // console.log("没有可用的")
         return;
     }
-    console.log(imglist);
+    // console.log(imglist);
+    console.log(`一共${total_count}张图片,开始压缩`)
     startCompress();
 
     // imglist.forEach((img)=>{
@@ -535,7 +543,7 @@ program.command("addkey [keys...]")
             }
         }
     })
-
+    listKeys();
     writeToConfig()
 })
 
@@ -564,7 +572,7 @@ program.command("rmkey [keys...]")
     config.keys = config.keys.filter(Boolean);
 
     // console.log("rmkeys",config.keys)
-
+    listKeys();
     writeToConfig();
 })
 
@@ -574,11 +582,8 @@ program
   .description('展示所有的 key,本月压缩数和可用性可能不准确')
   .action(() => {
     updateKeys();
-    console.log('所有的 key:');
-    for (let i = 0; i < config.keys.length; i++) {
-        const e = config.keys[i];
-        console.log(`可用性：${e.available} 类型: ${e.type} 本月已压缩：${e.compressionCount} 上次使用时间：${new Date(e.t).toLocaleDateString()}  key: ${e.key}`)
-    }
+    // console.log("config.keys: ",config.keys)
+    listKeys();
   });
 
     
